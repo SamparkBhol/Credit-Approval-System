@@ -2,8 +2,7 @@
 
 # Credit Approval System - Django & Celery
 
-This project is a complete backend-only credit approval system built for the Alemeno internship assignment.  
-It is fully containerized using Docker and features asynchronous task processing with Celery for data ingestion.
+This project is a complete backend-only credit approval system  , it is fully containerized using Docker and features asynchronous task processing with Celery for data ingestion.
 
 ---
 
