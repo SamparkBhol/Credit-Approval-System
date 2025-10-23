@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    # Environment variables are loaded from our .env file
+    environment:
+      - POSTGRES_DB=${SQL_DATABASE}
+      - POSTGRES_USER=${SQL_USER}
+      - POSTGRES_PASSWORD=${SQL_PASSWORD}
+    ports:
+      - "5432:5432" # Connects our computer's port to the container's port
+
+  # 2. Redis Message Broker Service (for Celery)
+  redis:
+    image: redis:7-alpine
+    container_name: redis_broker
+
+  # 3. Django Web Application Service
+  web:
+    build: . # Build the image from the Dockerfile in this directory
+    container_name: django_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./src:/home/appuser/web # Mounts our local 'src' folder into the container
+                               # This means code changes are reflected instantly!
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env # Load environment variables from .env
+    # This service won't start until 'db' and 'redis' are running
+    depends_on:
+      - db
+      - redis
+
+  # 4. Celery Background Worker Service
+  worker:
+    build: .
+    container_name: celery_worker
+    # This command starts the celery worker
+    command: celery -A core worker -l info
+    volumes:
+      - ./src:/home/appuser/web
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+
+# Defines a "named volume" to make sure our database data persists
+# even if the 'db' container is removed and re-created.
+volumes:
+  postgres_data:
