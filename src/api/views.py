@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Max
 from .models import Customer, Loan
 from . import services
 from .serializers import (
@@ -23,12 +24,19 @@ class RegisterView(APIView):
         serializer = CustomerRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
-            
+
             # 2. Call our business logic from services.py
             approved_limit = services.calculate_approved_limit(data['monthly_salary'])
-            
+
+            # --- START FIX ---
+            # Manually find the next available customer_id
+            max_id_obj = Customer.objects.aggregate(max_id=Max('customer_id'))
+            new_customer_id = (max_id_obj['max_id'] or 0) + 1
+            # --- END FIX ---
+
             # 3. Create the new customer in the database
             customer = Customer.objects.create(
+                customer_id=new_customer_id,  # <-- We now provide the ID
                 first_name=data['first_name'],
                 last_name=data['last_name'],
                 age=data.get('age'), # .get() safely handles if age is missing
@@ -36,11 +44,11 @@ class RegisterView(APIView):
                 phone_number=data['phone_number'],
                 approved_limit=approved_limit
             )
-            
+
             # 4. Serialize the created customer for the response
             response_serializer = CustomerResponseSerializer(customer)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-        
+
         # If validation fails, return a 400 error with details
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
